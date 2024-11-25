@@ -1,39 +1,36 @@
-name: PHP Composer
+name: PHP CI Workflow
 
 on:
   push:
-    branches: [ "master" ]
+    branches:
+      - main
   pull_request:
-    branches: [ "master" ]
-
-permissions:
-  contents: read
+    branches:
+      - main
 
 jobs:
-  build:
-
+  test:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      # Krok 1: Získání kódu z repozitáře
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Validate composer.json and composer.lock
-      run: composer validate --strict
+      # Krok 2: Nastavení PHP 8.1
+      - name: Set up PHP 8.1
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1' # Nastavení verze PHP (8.0, 8.1, nebo 8.2)
+          extensions: mbstring, intl, pdo_mysql # Rozšíření PHP
+          ini-values: |
+            memory_limit=2G # Nastavení hodnot v php.ini
+          coverage: none # Povolení nebo zakázání Xdebug
 
-    - name: Cache Composer packages
-      id: composer-cache
-      uses: actions/cache@v3
-      with:
-        path: vendor
-        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-php-
+      # Krok 3: Instalace závislostí pomocí Composeru
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-suggest
 
-    - name: Install dependencies
-      run: composer install --prefer-dist --no-progress
-
-    # Add a test script to composer.json, for instance: "test": "vendor/bin/phpunit"
-    # Docs: https://getcomposer.org/doc/articles/scripts.md
-
-    # - name: Run test suite
-    #   run: composer run-script test
+      # Krok 4: Spuštění testů
+      - name: Run tests
+        run: vendor/bin/phpunit --testdox
