@@ -23,6 +23,7 @@ namespace Lemonade\EmailValidator\Utils;
  */
 class DomainValidator
 {
+
     /**
      * Ověřuje, zda je doménové jméno platné.
      *
@@ -37,14 +38,23 @@ class DomainValidator
 
         $domain = trim($domain); // Odstranění bílých znaků
 
+        // Převod IDN domén na punycode
+        $asciiDomain = idn_to_ascii($domain, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
+
+        if ($asciiDomain === false) {
+            return false; // IDN doména je neplatná
+        }
+
         // Kontrola délky domény
-        if (strlen($domain) > 253) {
+        if (strlen($asciiDomain) > 253) {
             return false; // Maximální délka domény je 253 znaků
         }
 
-        // Regulární výraz pro validaci struktury doménového jména
-        $pattern = '/^(?=.{1,253}$)(?:(?!-)[a-zA-Z0-9\-]{1,63}(?<!-)\.)+[a-zA-Z]{2,63}$/';
+        // Regulární výraz pro validaci struktury doménového jména (vcetne punycode domény)
+        $pattern = '/^(?=.{1,253}$)(?:(?!-)[a-zA-Z0-9\-]{1,63}(?<!-)\.)+(xn--[a-zA-Z0-9\-]{2,59}|[a-zA-Z]{2,63})$/';
 
-        return (bool)preg_match($pattern, $domain);
+        return (bool)preg_match($pattern, $asciiDomain);
     }
+
+
 }

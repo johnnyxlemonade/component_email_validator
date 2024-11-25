@@ -9,6 +9,8 @@ use GuzzleHttp\Middleware;
 use Psr\Log\LogLevel;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
+use RuntimeException;
+use Lemonade\EmailValidator\Logger\LoggerFactory;
 
 /**
  * GuzzleClientFactory
@@ -31,20 +33,10 @@ class GuzzleClientFactory
      *
      * @param bool $enableLogging Určuje, zda bude povoleno logování HTTP požadavků a odpovědí.
      * @param string|null $logFile Cesta k logovacímu souboru. Pokud není zadána, použije se výchozí hodnota.
+     * @param string $logLevel Úroveň logování (např. DEBUG, INFO, WARNING).
      * @return Client Návratová hodnota je instance GuzzleHttp\Client připravená k použití.
-     *
-     * @example
-     * // Vytvoření klienta bez logování
-     * $client = GuzzleClientFactory::create();
-     *
-     * // Vytvoření klienta s logováním do specifického souboru
-     * $client = GuzzleClientFactory::create(true, '/path/to/logfile.log');
-     *
-     * // Vytvoření klienta s logováním, kdy se cesta k logu vezme z proměnné prostředí
-     * putenv('GUZZLE_LOG_FILE=/path/to/logfile.log');
-     * $client = GuzzleClientFactory::create(true);
      */
-    public static function createClient(bool $enableLogging = false, string $logFile = null, array $options = []): Client
+    public static function createClient(bool $enableLogging = false, string $logFile = null, array $options = [], string $logLevel = 'DEBUG'): Client
     {
 
         // Pokud ještě nebyl stack inicializován, inicializuj ho
@@ -56,20 +48,17 @@ class GuzzleClientFactory
 
                 $logFile = $logFile ?? getenv('GUZZLE_LOG_FILE') ?: __DIR__ . '/logs/guzzle_validation.log';
 
-                // Kontrola, zda existuje složka pro logy, pokud ne, vytvoř ji
-                if (!is_dir(dirname($logFile))) {
-                    mkdir(dirname($logFile), 0777, true);
-                }
+                // Vytvoření loggeru pomocí LoggerFactory
+                $logger = LoggerFactory::createLogger($logFile, "guzzle_logger", $logLevel);
 
-                $logger = new Logger('guzzle_logger');
-                $logger->pushHandler(new StreamHandler($logFile, LogLevel::DEBUG));
-
+                // Přidání middleware pro logování
                 self::$stack->push(
                     Middleware::log(
                         $logger,
                         new MessageFormatter("{method} {uri} HTTP/{version} {code} {res_header_Content-Length}")
                     )
                 );
+
             }
         }
 

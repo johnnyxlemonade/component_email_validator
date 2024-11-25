@@ -35,7 +35,6 @@ class ValidationErrorFormatter
             $manager->validate($email);
             $errors = $manager->getErrors();
 
-            $result .="<pre>";
             $result .= "Výsledky pro e-mail: $email\n";
 
             if (empty($errors)) {
@@ -53,9 +52,6 @@ class ValidationErrorFormatter
                     $result .= "    - $name (Chybovost: $coeficient)\n";
                 }
             }
-
-            $result .="</pre>";
-            $result .= "\n";
         }
 
         return $result;

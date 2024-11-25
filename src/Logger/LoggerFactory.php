@@ -2,56 +2,47 @@
 
 namespace Lemonade\EmailValidator\Logger;
 
+use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use Psr\Log\LogLevel;
-use Monolog\Handler\StreamHandler;
+use RuntimeException;
 
 /**
- * Třída LoggerFactory
+ * LoggerFactory
  *
- * Poskytuje tovární metodu pro vytvoření instance loggeru.
- * Používá Monolog jako knihovnu pro zpracování logů a ukládá je do souboru.
- *
- * Funkcionalita:
- * - Vytváří logger s definovaným kanálem a úrovní logování.
- * - Umožňuje nastavit vlastní soubor pro ukládání logů a název kanálu.
- *
- * Použití:
- * - Třída je vhodná pro vytváření loggerů v kontextu validace e-mailů nebo jiných aplikací.
- * - Umožňuje snadnou integraci Monologu bez opakování kódu.
- *
- * Konstruktor:
- * - Třída neobsahuje konstruktor, protože poskytuje pouze statickou metodu `createLogger`.
- *
- * Metody:
- * - `createLogger(string $logFile, string $channel = 'email_validator'): Logger`
- *   - Vytváří instanci loggeru s určeným souborem a kanálem.
- *   - Výchozí název kanálu je `email_validator`.
- *
- * Příklad použití:
- * ```php
- * use Lemonade\EmailValidator\Logger\LoggerFactory;
- *
- * $logger = LoggerFactory::createLogger('/path/to/logfile.log', 'custom_channel');
- * $logger->info('This is a test log entry.');
- * ```
- *
- * Výstup:
- * - Logovací záznamy jsou ukládány do zadaného souboru, např. `/path/to/logfile.log`.
+ * Třída pro vytvoření loggeru s podporou logování do souboru.
  */
 class LoggerFactory
 {
     /**
      * Vytváří instanci loggeru.
      *
-     * @param string $logFile Cesta k souboru pro ukládání logů.
-     * @param string $channel Název kanálu loggeru.
+     * @param string $logFile Cesta k logovacímu souboru.
+     * @param string $channel Název logovacího kanálu.
+     * @param string $logLevel Úroveň logování (např. DEBUG, INFO, WARNING).
      * @return Logger
+     * @throws RuntimeException Pokud nelze vytvořit adresář nebo není zapisovatelný.
      */
-    public static function createLogger(string $logFile, string $channel = 'email_validator'): Logger
+    public static function createLogger(string $logFile, string $channel = 'email_validator', string $logLevel = LogLevel::DEBUG): Logger
     {
+        // Získání adresáře z cesty k souboru
+        $logDir = dirname($logFile);
+
+        // Kontrola a vytvoření adresáře
+        if (!is_dir($logDir)) {
+            if (!mkdir($logDir, 0777, true) && !is_dir($logDir)) {
+                throw new RuntimeException(sprintf('Cannot create directory "%s" for log file.', $logDir));
+            }
+        }
+
+        // Ověření, zda je adresář zapisovatelný
+        if (!is_writable($logDir)) {
+            throw new RuntimeException(sprintf('Directory "%s" is not writable.', $logDir));
+        }
+
+        // Vytvoření loggeru
         $logger = new Logger($channel);
-        $logger->pushHandler(new StreamHandler($logFile, LogLevel::DEBUG));
+        $logger->pushHandler(new StreamHandler($logFile, $logLevel));
 
         return $logger;
     }

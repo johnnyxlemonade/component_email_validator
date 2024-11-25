@@ -161,14 +161,11 @@ class ConfigHandlerItem implements Stringable
      */
     private static function validateHeaders(array $headers): void
     {
-        if (count($headers) !== count(array_unique(array_keys($headers)))) {
-            throw new InvalidArgumentException("Hlavičky obsahují duplicitní klíče.");
-        }
-
         foreach ($headers as $key => $value) {
             if (!is_string($key) || !is_string($value)) {
                 throw new InvalidArgumentException("Hlavičky musí být pole ve formátu klíč-hodnota (řetězce).");
             }
         }
     }
+
 }

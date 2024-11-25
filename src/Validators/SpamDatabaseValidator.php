@@ -4,64 +4,23 @@ namespace Lemonade\EmailValidator\Validators;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
-use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\Promise\FulfilledPromise;
+use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\Promise\Utils;
 use Lemonade\EmailValidator\Utils\ConfigHandler;
 use Lemonade\EmailValidator\Utils\ConfigHandlerItem;
 use Psr\Cache\CacheItemPoolInterface;
-use Psr\Log\LoggerInterface;
 use Psr\Cache\InvalidArgumentException;
+use Psr\Log\LoggerInterface;
 use Exception;
 
 /**
  * Třída SpamDatabaseValidator
  *
- * Slouží k validaci e-mailových adres pomocí externích spamových databází.
- * Umožňuje ověřit, zda e-mailová adresa není označena jako spam pomocí HTTP API volání.
- *
- * Funkcionalita:
- * - Načítá konfigurace API prostřednictvím třídy `ConfigHandler`.
- * - Provádí asynchronní HTTP požadavky na ověření e-mailu v různých databázích.
- * - Využívá kešování výsledků pro zlepšení výkonu a minimalizaci opakovaných dotazů.
- * - Loguje chyby při HTTP požadavcích, chybné odpovědi nebo selhání při zpracování.
- *
- * Použití:
- * - Třída je vhodná pro scénáře, kde je třeba validovat e-mailovou adresu vůči známým spamovým zdrojům.
- * - Může být použita v e-commerce, SaaS aplikacích nebo jiných systémech vyžadujících ochranu před spamem.
- *
- * Konstruktor:
- * - `ConfigHandler`: Obsahuje konfigurace API (např. URL a hlavičky).
- * - `Client`: Guzzle klient pro provádění HTTP požadavků.
- * - `CacheItemPoolInterface`: Implementace PSR-6 pro kešování výsledků.
- * - `LoggerInterface|null`: Volitelný logger pro logování chyb a událostí.
- *
- * Metody:
- * - `validate(string $email): bool`: Ověřuje, zda e-mailová adresa není ve spamové databázi.
- * - `getErrorCoefficient(): float`: Vrací koeficient závažnosti pro tento validátor (1.0 pro kritickou závažnost).
- *
- * Zpracování výsledků:
- * - Pokud je e-mail nalezen v jakékoli databázi, validace vrací `false`.
- * - Pokud všechna API selžou, validace vrací výchozí hodnotu `true` jako fallback.
- *
- * Logování:
- * - Varování nebo chyby při HTTP požadavcích (např. neplatná odpověď, selhání DNS).
- * - Informace o nalezených spamových adresách.
- *
- * Příklady:
- * - Platné e-maily: `user@example.com` (není označen jako spam v žádné databázi).
- * - Neplatné e-maily: `spam@spammer.com` (označen jako spam ve více databázích).
+ * Slouží k validaci e-mailových adres proti externím spamovým databázím.
  */
 class SpamDatabaseValidator implements ValidatorInterface
 {
-    /**
-     * Inicializuje validátor s povinnou konfigurací, klientem a cache.
-     *
-     * @param ConfigHandler $config Konfigurace API (URL a další metadata).
-     * @param Client $client Guzzle klient pro HTTP požadavky.
-     * @param CacheItemPoolInterface $cache Implementace PSR-6 pro kešování výsledků.
-     * @param LoggerInterface|null $logger Volitelný logger pro logování chyb a událostí.
-     */
     public function __construct(
         protected readonly ConfigHandler $config,
         protected readonly Client $client,
@@ -83,20 +42,24 @@ class SpamDatabaseValidator implements ValidatorInterface
             $promises[] = $this->checkEmailInSpamDatabaseAsync($email, $config);
         }
 
-        // Čekání na výsledky všech asynchronních požadavků
         $results = Utils::settle($promises)->wait();
 
-        // Kontrola, zda všechna API selhala
+        // Logování výsledků
+        $this->logger?->debug('API Results', ['results' => $results]);
+
+        // Zkontrolujeme, zda všechna API selhala
         $allRejected = array_reduce($results, fn($carry, $result) => $carry && $result['state'] === 'rejected', true);
 
         if ($allRejected) {
+
             $this->logger?->error('SpamDatabaseValidator: All API requests failed', [
                 'email' => $email,
             ]);
+
             return true; // Fallback na validní e-mail
         }
 
-        // Kontrola výsledků jednotlivých požadavků
+        // Kontrolujeme, zda některé API označilo e-mail jako spam
         foreach ($results as $result) {
             if ($result['state'] === 'fulfilled' && $result['value'] === true) {
                 return false; // Spam nalezen
@@ -152,11 +115,8 @@ class SpamDatabaseValidator implements ValidatorInterface
                     return $result;
                 },
                 function (RequestException $e) use ($url) {
-                    $this->logger?->error('SpamDatabaseValidator: HTTP request failed', [
-                        'exception' => $e,
-                        'url' => $url,
-                    ]);
-                    return false;
+
+                    return false; // Defaultní návratová hodnota při chybě
                 }
             );
     }
