@@ -38,7 +38,11 @@ class EmailValidationManager
     {
     }
 
-
+    /**
+     * Přidá nový validátor do seznamu validátorů.
+     *
+     * @param ValidatorInterface $validator Instance validátoru, který bude použit pro validaci e-mailů.
+     */
     public function addValidator(ValidatorInterface $validator): void
     {
         try {
